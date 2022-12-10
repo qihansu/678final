@@ -407,7 +407,7 @@ $$ log(salary) = 11.4 + 0.46 \times yearsatcompany + 0.11 \times Education + 0.3
 plotFEsim(FEsim(model, n.sims = 100), level = 0.9, stat = 'median', intercept = FALSE)
 ```
 According to the fixed model, it can be seen that the salary was 11.42 when yearsatcompany, Education and Race at their average level. Each year the employee stay at this company, their salary will expectedly grow 0.45, and every level increase in the empoyee's education level will contribute 0.11 increase to their salary level. For the Race, it shows that there's 0.38 positive impact on salary level, I reckon that this was beacuse Whites population is the largest portion in the data-set.
-When taken the random effect into consideration, it shows that there is a 0.02 difference between different companies and job titles. As we can see, there is a 0.01 difference between different companies 
+When taken the random effect into consideration, it shows that there is a 0.02 difference between different companies and job titles. As we can see, there is a 0.01 difference between salary and different years at companies by different companies, and there is a 0.03 difference can be seen between the Education level and salary by different job titles. However, for Amazon, there is no difference between Race and salary on the company level. 
 
 
 
