@@ -1,0 +1,494 @@
+---
+title: "678final"
+author: "Qihan Su"
+date: "2022-12-05"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+    keep_tex: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Abstract 
+According to our career path which is data scientist, the most striking topic is the pay-back of achieving our career goals. What exactly affects the income level of data scientists is a topic that is of great interest to many people.In this project, I focus on the 15 companies with the most statistical data in the data-set as the main object of study. After analyzing the correlation through EDA, I found that the salary of people from different companies with different job titles were affected differently, so I chose to build a multilevel model for stratified analysis.
+
+## Introduction
+Usually, salary is correlated with the company you work for, the number of hours you work, the number of years you have worked there, and many other factors. In the data science industry the annual salary may vary depending on various job types, for instance, the salary of a product manager in a technology company is definitely different from which is a general data analyst. Also, a data analyst's salary may also be related to the length of time he has been with the company, because the salary is affected by both shares and bonuses, and the share of stock received varies with the time of entry into the company, which can affect the salary level. Lastly, the place where the companies are located may also affect the salary. In order to take all these circumstances in to consideration, I choose to construct a multilevel model with groups of company and job titles.
+
+## Method
+The data is from the Kaggle website(https://www.kaggle.com/datasets/jackogozaly/data-science-and-stem-salaries).
+The original data has 29 columns with 62642 observations. Due to the large volume of data, I have selected the data of the top 15 companies according to their frequency of appearance in the data set. These companies cover various fields such as technology, finance, and communication, which are of reference significance. On this basis, I removed the columns with weak practical use, and merged the base salary, share valuation and bonus in the original data into a new column representing the total annual salary. And because of the annual salary is high, so I log the salary in order for the further use. I also put the education level, race, and gender in the data as numbers. (In education, high school is 1, college is 2, undergraduate degree is 3, graduate degree is 4, and doctorate is 5; in race, Asian is 1, Latino is 2, two or more are 3, black is 4, and white is 5; in gender, male is 1 and female is 0) 
+
+The specific data description are as below.
+
+
+\newpage
+Data Preparing
+
+|column names       |explanation                                      |
+| :-----:           | :-----                                          |
+| company           | Top 15 counts companies                         |
+| title             | job titles                                      |
+| location          | City, State, Country                            |
+| yearsofexperience | Years of working in this industry               |
+| salary            | Summary of basesalary, bonus and stockgrantvalue|
+| yearsatcompany    | Years of working in this company                |
+| gender            | 1 for Male, 0 for Female                        |
+| cityid            | Specific city                                   |
+| Masters_Degree    | Highest Degree is Master                        |
+| Bachelors_Degree  | Highest Degree is Bachelor                      |
+| Docterate_Degree  | Highest Degree is Docterate                     |
+| Highschool        | Highest Degree is highschool                    |
+| Some_college      | Highest Degree is some college                  |
+| Race_Asian        | Race is Asian                                   |
+| Race_White        | Race is White                                   |
+| Race_Two_Or_More  | Having two or more race type                    |
+| Race_Black        | Race is Black                                   |
+| Race_Hispanic     | Race is Hispanic                                |
+| Race              | 1:Asian,2:Hispanic,3:two or more,4:Black,5:White|
+| Education         | 1:Highschool,2:College,3:Bachelor,4:Master,5:Phd|
+| state             | Different state                                 |
+
+
+
+```{r include=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+library(correlation)
+library(PerformanceAnalytics)
+library(qqplotr)
+library(tidyverse)
+library(broom)
+library(merTools)
+library(gridExtra)
+```
+
+```{r include=FALSE}
+##Sort top 15 company who has the most count
+data <- read_csv("/Users/suqihan/Desktop/678final/Levels_Fyi_Salary_Data.csv")
+
+
+
+data_c <- count(data,company) %>% top_n(15, n) %>%arrange(desc(n))
+data1 <-data %>% filter(company == "Amazon")
+data2 <-data %>% filter(company == "Microsoft")
+data3 <- data %>% filter(company == "Google")	
+data4 <- data %>% filter(company == "Facebook")
+data5 <- data %>% filter(company == "Apple")	
+data6 <- data %>% filter(company == "Oracle")	
+data7 <- data %>% filter(company == "IBM")
+data8 <- data %>% filter(company == "Intel")
+data9 <- data %>% filter(company == "Cisco")		
+data10 <- data %>% filter(company == "Salesforce")	
+data11 <- data %>% filter(company == "Capital One")	
+data12 <- data %>% filter(company == "VMware")
+data13 <- data %>% filter(company == "JPMorgan Chase")
+data14 <- data %>% filter(company == "Deloitte")		
+data15 <- data %>% filter(company == "Uber")	
+data_new <- rbind(data1,data3,data4,data5,data6,data7,data8,data9,data10,data11,data12,data13,data14,data15)
+
+data_new <- data_new %>% na.omit(data_new)
+
+#data_new <- data_new %>% select(-timestamp, -tag, -level,  -totalyearlycompensation, -otherdetails,  -dmaid, -rowNumber)
+
+```
+
+```{r echo=FALSE}
+##Clean data and create new column as Salary which is the sum of base salary, stockgrantvalue and bonus
+salary<-data_new$basesalary+data_new$stockgrantvalue+data_new$bonus
+df_new<-cbind(data_new,salary)
+#df_new <- df_new %>% select(-basesalary,-stockgrantvalue,-bonus)
+```
+
+```{r echo=FALSE}
+#df_cityid <- df_new %>% filter(df_new$cityid)
+df_cityid <- count(df_new,cityid) %>% top_n(15, n) %>%arrange(desc(n))
+
+#df1 <-df_cityid %>% filter(cityid == "11527")
+# df2 <-df_cityid %>% filter(cityid == "7419")
+# df3 <- df_cityid %>% filter(cityid == "10182")	
+# df4 <- df_cityid %>% filter(cityid == "7300")
+# df5 <- df_cityid %>% filter(cityid == "7158")	
+# df6 <- df_cityid %>% filter(cityid == "7322")	
+# df7 <- df_cityid %>% filter(cityid == "7472")
+# df8 <- df_cityid %>% filter(cityid == "10965")
+# df9 <- df_cityid %>% filter(cityid == "4058")		
+# df10 <- df_cityid %>% filter(cityid == "12008")	
+# df11 <- df_cityid %>% filter(cityid == "7422")	
+# df12 <- df_cityid %>% filter(cityid == "7351")
+# df13 <- df_cityid %>% filter(cityid == "40303")
+# df14 <- df_cityid %>% filter(cityid == "7434")		
+# df15 <- df_cityid %>% filter(cityid == "1320")
+# df_new <- rbind(df1,df2,df3,df4,df5,df5,df6,df7,df8,df9,df10,df11,df12,df13,df14,df15)
+```
+
+```{r echo=FALSE}
+##Turn Education into number
+df_new$Education[df_new$Education== "Highschool"] <- 1
+df_new$Education[df_new$Education== "Some College"] <- 2
+df_new$Education[df_new$Education== "Bachelor's Degree"] <- 3
+df_new$Education[df_new$Education=="Master's Degree"] <- 4
+df_new$Education[df_new$Education=="PhD"] <- 5
+df_new$Education <- as.numeric(df_new$Education)
+
+```
+
+```{r echo=FALSE}
+##Turn Race into number
+df_new$Race[df_new$Race== "Asian"] <- 1
+df_new$Race[df_new$Race== "Hispanic"] <- 2
+df_new$Race[df_new$Race== "Two Or More"] <- 3
+df_new$Race[df_new$Race=="Black"] <- 4
+df_new$Race[df_new$Race=="White"] <- 5
+df_new$Race <- as.numeric(df_new$Race)
+```
+
+```{r echo=FALSE, warning=FALSE}
+##Turn gender into number
+df_new$gender[df_new$gender== "Male"] <- 1
+df_new$gender[df_new$gender== "Female"] <- 0
+df_new$gender <- as.numeric(df_new$gender)
+
+```
+
+```{r echo=FALSE}
+##Seperate the location into State
+df_new$state <- gsub(".+\\s(.+)$", "\\1", df_new$location)
+
+```
+
+```{r echo=FALSE}
+df_new$cityid <- as.numeric(df_new$cityid)
+
+```
+
+```{r echo=FALSE}
+
+drop_index <- c(-1, -3, -5 ,-9:-12, -14, -16, -17 )
+
+df_new <- df_new[,drop_index]
+# df_new = select(df_new,-1, -3, -5 ,-9:-13,-15:-16)
+
+#-tag, -level,  -totalyearlycompensation, -otherdetails,  -dmaid, -rowNumber, -basesalary,-stockgrantvalue,-bonus
+```
+
+
+## Exploratory Data Analysis
+
+```{r echo=FALSE, fig.height=3, fig.width=6,fig.cap="yearsofexperience distribution among different companies and titles."}
+##yearsofexpericen distribution among different company
+gg1 <- df_new %>%
+  ggplot(aes(yearsofexperience))+
+  geom_density(col = 'lightblue')+
+  facet_wrap(~company)
+
+
+##yearsofexpericen distribution among different titel
+gg2 <- df_new %>%
+  ggplot(aes(yearsofexperience))+
+  geom_density(col = 'purple')+
+  facet_wrap(~title)
+grid.arrange(gg1, gg2, ncol = 2)
+```
+
+ From the figure 1, we can know that at both the company and job level, it is clear that the more experience you have in this industry, the higher your salary level. However, the correlation between different job positions is not as obvious as at the company level, so we can consider placing the work experience at the job position level in the subsequent modeling.
+
+\newpage
+
+
+```{r echo=FALSE,fig.height=3, fig.width=6, fig.cap="education distribution among different companies and titles ."}
+##education distribution among different company
+gg3 <- df_new %>%
+  ggplot(aes(Education))+
+  geom_density(col = 'lightblue')+
+  facet_wrap(~company)
+
+##education distribution among different title
+gg4 <- df_new %>%
+  ggplot(aes(Education))+
+  geom_density(col = 'purple')+
+  facet_wrap(~title)
+grid.arrange(gg3, gg4, ncol = 2)
+```
+
+The figure 2 above shows the distribution of education between different companies and different jobs. It can be clearly seen that at the company level, education shows a very similar distribution. However, there are more obvious differences in the distribution status of education between different jobs. For data scientists and hardware engineers, the education distribution is more concentrated between 4 and 5, which means that most backend workers tend to be those with master's degrees and PhDs.
+
+
+```{r echo=FALSE, fig.height=3, fig.width=6,fig.cap="race distribution among different companies and titles."}
+##Race  distribution among different companies
+gg5 <- df_new %>%
+  ggplot(aes(Race))+
+  geom_density(col = 'lightblue')+
+  facet_wrap(~company)
+
+##Race distribution among different titles
+gg6 <- df_new %>%
+  ggplot(aes(Race))+
+  geom_density(col = 'purple')+
+  facet_wrap(~title)
+grid.arrange(gg5, gg6, ncol = 2)
+```
+
+Since in the data processing stage, 1 represents Asians and 5 represents hundreds. It is more obvious from the figure 3 which is the distribution is relatively similar both at the company level and at the job level.
+
+\newpage
+```{r echo=FALSE, fig.height=4, fig.width=12,fig.cap="salary vs yearsatcompany."}
+##years at company vs salary among different company
+salary_by_company <-ggplot(data = df_new) + 
+  aes(x = (yearsatcompany), y = log(salary)) + 
+  geom_point(aes(color = factor(company)), size = .6) + 
+  geom_smooth(aes(color = factor(company)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Salary vs yearsatcompany", x = "years at company", y = "log(salary)")
+
+
+##years at company vs salary among different title
+salary_by_title <-ggplot(data = df_new) + 
+  aes(x = (yearsatcompany), y = log(salary)) + 
+  geom_point(aes(color = factor(title)), size = .6) + 
+  geom_smooth(aes(color = factor(title)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Salary vs yearsatcompany", x = "years at company", y = "log(salary)")
+
+grid.arrange(salary_by_company,salary_by_title , ncol = 2)
+```
+
+The figure 4 above shows the correlation between years at the company and salary , both at the company level and at the job title level, with a reasonable increasing. The intercept and slope vary slightly from company to company and from title to title. It seems that although the longer the employee staying at the company, the higher their salary level, it's lightly differ from titles and companies.
+
+
+
+```{r echo=FALSE,fig.height=4, fig.width=12, fig.cap="salary vs education."}
+##education vs salary among different company
+salary_by_company <-ggplot(data = df_new) + 
+  aes(x = (Education), y = log(salary)) + 
+  geom_point(aes(color = factor(company)), size = .6) + 
+  geom_smooth(aes(color = factor(company)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Salary vs education", x = "Education", y = "log(salary)")
+
+
+##education vs salary among different title
+salary_by_title <-ggplot(data = df_new) + 
+  aes(x = (Education), y = log(salary)) + 
+  geom_point(aes(color = factor(title)), size = .6) + 
+  geom_smooth(aes(color = factor(title)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Salary vs education", x = "Education", y = "log(salary)")
+
+grid.arrange(salary_by_company,salary_by_title , ncol = 2)
+```
+
+The figure 5 graphs above show the correlation between the level of education and the level of salary. The two graphs show the correlation between the two at different companies and at different job levels. At either level, there is an overall increasing trend. However, there is a slight difference in the ending and slope at the two different levels. We can also see that for different companies. In technology companies, such as amazon, Google, etc., the degree of impact of education on salary is not as large as in financial industries such as jp morgan, IBM. But at the company level, the overall incremental trend are more obvious. The difference between the intercept and slope is more pronounced at the job title level than at the company level.
+
+\newpage
+
+```{r echo=FALSE, fig.height=4, fig.width=12,fig.cap="salary vs race."}
+##Race vs salary among different company
+salary_by_company <-ggplot(data = df_new) + 
+  aes(x = (Race), y = log(salary)) + 
+  geom_point(aes(color = factor(company)), size = .6) + 
+  geom_smooth(aes(color = factor(company)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Salary vs Race", x = "Race", y = "log(salary)")
+
+
+##race vs salary among different title
+salary_by_title <-ggplot(data = df_new) + 
+  aes(x = (Race), y = log(salary)) + 
+  geom_point(aes(color = factor(title)), size = .6) + 
+  geom_smooth(aes(color = factor(title)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Salary vs Race", x = "Race", y = "log(salary)")
+
+grid.arrange(salary_by_company,salary_by_title , ncol = 2)
+```
+
+The correlation between race and salary level is not particularly clear, but the graph shows that among the company level, IBM and JP Morgan show an upward trend, while other companies tend to flatten out. in the race data, from 1-5 represent Asian, Brazilian, multi-racial, hei re. at the job level, there is a slight difference in the intercept and slope
+
+\newpage
+
+## Correlation of Data
+
+```{r include=FALSE}
+##correlation
+df_new %>% select_if(is.numeric)->df
+
+r <- cor(df, use="complete.obs")
+round(r,2)
+```
+
+```{r echo=FALSE , fig.cap="correlation plot"}
+pacman::p_load(ggcorrplot)
+ggcorrplot(r)
+```
+
+From the figure 7 we can see that there is a strong positive correlation between salary level and years of experience in the company as well as work experience. Secondly, there is a slight positive correlation between gender and salary, and since men are 1 and women are 0, it can be found that the overall salary level is higher for men than for women. In the education category, education shows a relatively significant positive correlation with salary level, and since Ph.D. is a value of 5, it can be seen that having a Ph.D. has a relatively large impact on salary level, but having a bachelor's degree or not does not have a large impact on salary level. Within the race category, it is more evident that the strongest correlation between whites' and salary level can be seen. From the correlation analysis, only the years at the company was retained in the subsequent modeling because the yearsofexperience have strong correlation with yearsatcompany, so we drop the yearsofexperience.
+
+The correlation chart help me to decide the variable which could be used in the later multilevel model constructing.
+
+
+\newpage
+
+## Model Fit
+
+```{r echo=FALSE,warning=FALSE}
+model <- lmerTest::lmer(log(salary) ~ yearsatcompany  + Education + Race + cityid
+                        + (1 + Education| title) 
+                        + (1 + yearsatcompany+ Race |company), data=df_new)
+```
+
+
+|                |Estimate   |Std. Error  |df        |t value |Pr(>&#124;t&#124;) |
+|:---:           |:---:      |:---:       |:---:     |:---:   |:---:              |
+|(Intercept)    |1.142e+01   | 1.179e-01  |2.573e+01 |96.925  |< 2e-16 ***        |  
+|yearsatcompany |4.543e-02   | 5.399e-03  |1.335e+01 |8.415   |1.06e-06 ***       | 
+|Education      |1.384e-01   |1.723e-02   |7.719e+00 |8.036   |5.17e-05 ***       |
+|Race           |3.808e-02   |5.411e-03   |9.104e+00 |7.037   |5.73e-05 ***       |
+|cityid         |-1.215e-05  |7.217e-07  |8.137e+03  |-16.839 |< 2e-16 ***        |
+The chart above is the summary of the fixed effct.
+
+
+```{r  include=FALSE, fig.cap="random effect"}
+##chart of random effect
+round(ranef(model)$company, digits = 2)
+round(ranef(model)$title, digits = 2)
+
+```
+
+|               |(Intercept)  |yearsatcompany  |Race        |
+|:---:          |:---:        |:---:           |:---:       |
+|Amazon         |0.12         |0.01            |0.00        |
+|Apple          |0.39         |0.01            |-0.02       |
+|Capital One    |-0.03        |-0.02           |-0.01       |
+|Cisco          |-0.19        |-0.01           |0.00        |
+|Deloitte       |-0.46        |0.01            |0.00        |
+|Facebook       |0.61         |0.03            |-0.02       |
+|Google         |0.29         |0.02            |-0.01       |
+|IBM            |-0.43        |-0.02           |0.01        |
+|Intel          |-0.18        |-0.01           |0.00        |
+|JPMorgan Chase |-0.44        |-0.01           |0.22        |
+|Oracle         |-0.14        |-0.03           |0.02        |
+|Salesforce     |0.20         |0.01            |-0.01       |
+|Uber           |0.35         |0.00            |0.00        |
+|VMwre          |-0.08        |0.01            |0.01        |
+
+|                            |(Intercept)  |Education       |
+|:---:                       |:---:        |:---:           |
+|Business Analyst            |-0.19	       |-0.03	          |
+|Data Scientist	             |-0.09	       |0.02            |	
+|Hardware Engineer           |-0.07	       |0.01		        |
+|Human Resources	           |-0.16	       |-0.02		        |
+|Management Consultant	     |-0.06	       |0.07		        |
+|Marketing	                 |-0.17	       |0.02            |		
+|Mechanical Engineer	       |-0.06	       |0.00		        |
+|Product Designer	           |0.22	       |-0.04           |		
+|Product Manager	           |0.23         |0.00		        |
+|Recruiter                   |-0.24        |-0.05	          |
+|Sales                       |-0.01        |-0.02           |		
+|Software Engineer	         |-0.12        |0.04		        |
+|Software Engineering Manager|0.40         |0.03            |		
+|Solution Architect          |0.26	       |-0.04		        |
+|Technical Program Manager   |0.06         |0.01            |	
+
+\newpage
+
+## Result
+
+Interpretation
+The fixed model is below: 
+$$ log(salary) = 11.42  +  0.45\times yearsatcompany  + 0.14 \times Education + 0.38 \times Race $$ 
+
+Take the random effect into consideration, and choose the business analyst from the company Amazon as an example.
+$$ log(salary) = 11.4 + 0.46 \times yearsatcompany + 0.11 \times Education + 0.38 \times Race $$
+
+```{r echo=FALSE, fig.height=4, fig.width=8, fig.cap="fixed effect"}
+
+plotFEsim(FEsim(model, n.sims = 100), level = 0.9, stat = 'median', intercept = FALSE)
+```
+According to the fixed model, it can be seen that the salary was 11.42 when yearsatcompany, Education and Race at their average level. Each year the employee stay at this company, their salary will expectedly grow 0.45, and every level increase in the empoyee's education level will contribute 0.11 increase to their salary level. For the Race, it shows that there's 0.38 positive impact on salary level, I reckon that this was beacuse Whites population is the largest portion in the data-set.
+When taken the random effect into consideration, it shows that there is a 0.02 difference between different companies and job titles. As we can see, there is a 0.01 difference between different companies 
+
+
+
+## Model Checking
+
+```{r echo=FALSE, fig.height=5, fig.width=10, fig.cap="Q-Q plot"}
+##Model checking : Q-Q plot
+plot(fitted(model), resid(model, type = 'pearson')) 
+abline(0,0,col = "green")
+
+qqnorm(resid(model)) 
+qqline(resid(model), col = "green")
+#grid.arrange(residual_plot, qq_plot, ncol = 2)
+```
+In order to check the model fit, I draw the Q-Q plot to check, from the plot showing above, the model seems to fit well.
+
+
+\newpage
+
+## Conclusion
+
+In this article, I select a data-set of salary levels in data science and stem majors to explore the factors that affect salary levels. The analysis is also conducted at both company and job levels using a multilevel model based on data characteristics. The model concludes that the length of time working in the company, race type, and education level all show positive correlation with salary level.
+In terms of job experience, there is a significant increasing trend of higher salary level with longer working experience in the specific company. In terms of race,  in this paper, value 1 is used for Asian, value 2 for Hispanic, value 3 for both and more races, value 4 for Black, and value 5 for White. I  found it interesting to note that Asians are more likely to work in back office jobs such as software engineers, mechanical engineers, and hardware developers, but less likely to work in consulting, marketing, and human resources positions. In terms of education, the highest number of people in all positions are bachelor's and master's degree. And it can be found that for companies in the financial field such as IBM and JP Morgan Chase, the distribution of education will be higher than that of technology companies such as Amazon and Google. Secondly, the variable of city code is not subsumed into the company as well as the title consideration, but I have compiled the top 15 cities by processing the data. The most people engaged in the field of data science are distributed in Seattle, San Francisco, New York, Menlo Park, Cupertino, Mountain View, Sunnyvale, Austin, Bangalore, San Jose, Palo Alto, Washington, Santa Clara. Nine of the top fifteen cities in the country in terms of the number of practitioners are located in California. This should be due to the fact that many large technology companies are located in California. For example, Seattle is ranked first because Amazon's headquarters is located in Seattle. And memlo park ranked 4th, also because it is the headquarters of Facebook.
+
+## Discussion
+
+In this article, I consider the factors that influence salary levels in the data science industry on two levels and analyze these factors in groups. However, there are still some limitations, for example, in the aspect of location, I did not explore in great detail the extent to which location has a shadow line on the level of salary. Secondly, I think the model can make model predictions, such as what combination will be more conducive to career development and achieve a more satisfactory salary, thus helping to provide a better prediction for people who are about to enter the industry.
+
+
+
+\newpage
+## Appendix
+
+```{r echo=FALSE, fig.height=4, fig.width=12,warning = FALSE,fig.cap="salary vs gender."}
+##gender vs salary among different company
+salary_by_company <-ggplot(data = df_new) + 
+  aes(x = (gender), y = log(salary)) + 
+  geom_point(aes(color = factor(company)), size = .6) + 
+  geom_smooth(aes(color = factor(company)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Salary vs gender", x = "gender", y = "log(salary)")
+
+
+##gender vs salary among different title
+salary_by_title <-ggplot(data = df_new) + 
+  aes(x = (gender), y = log(salary)) + 
+  geom_point(aes(color = factor(title)), size = .6) + 
+  geom_smooth(aes(color = factor(title)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Salary vs gender", x = "gender", y = "log(salary)")
+
+grid.arrange(salary_by_company,salary_by_title , ncol = 2)
+```
+
+```{r echo=FALSE,fig.height=4, fig.width=12,  warning = FALSE,fig.cap="salary vs city."}
+##city vs salary among different company
+salary_by_company <-ggplot(data = df_new) + 
+  aes(x = (cityid), y = log(salary)) + 
+  geom_point(aes(color = factor(company)), size = .6) + 
+  geom_smooth(aes(color = factor(company)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Salary vs cityid", x = "city", y = "log(salary)")
+
+
+##city vs salary among different title
+salary_by_title <-ggplot(data = df_new) + 
+  aes(x = (cityid), y = log(salary)) + 
+  geom_point(aes(color = factor(title)), size = .6) + 
+  geom_smooth(aes(color = factor(title)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Salary vs cityid", x = "city", y = "log(salary)")
+
+grid.arrange(salary_by_company,salary_by_title , ncol = 2)
+```
+
+```{r echo=FALSE, message = FALSE, warning=FALSE, fig.cap="Correlation Matrix"}
+##correlation matrix
+df_new1 <- df_new[, c(4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)]
+chart.Correlation(df_new1, histogram=TRUE, pch=20)
+```
+
+
+
+
+
+
+
+
